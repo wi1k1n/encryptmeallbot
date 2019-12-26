@@ -6,6 +6,7 @@
 Bot which takes messages
 """
 import logging
+from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton as IKB
 from telegram.ext import Updater, Filters, CommandHandler, ConversationHandler, MessageHandler
 from api_token import TOKEN
 from constants import *
@@ -19,15 +20,17 @@ def start(upd, ctx):
 	logger.debug('>> start(upd, ctx)')
 
 	# TODO: DB without need to ask new password every time the bot is reloaded
+	# TODO: option to generate password
 	ctx.chat_data['setpwd'] = True
 	ctx.chat_data['mode'] = 'encode'
-	msg = upd.message.reply_text('Hi. I can encrypt messages but first I need a password. Just send it to me.')
+	msg = upd.message.reply_text('Hi. I can encrypt messages but first send me a password.')
 	return STATE_RECEIVE_PWD
 
 def setPassword(upd, ctx):
 	logger.debug('>> setPassword(upd, ctx)')
 
 	ctx.chat_data['setpwd'] = True
+
 	msg = upd.message.reply_text('Please send me new password')
 	return STATE_RECEIVE_PWD
 
@@ -41,7 +44,11 @@ def receivePassword(upd, ctx):
 		hash = get_hash(upd.message.text)
 		upd.message.delete()
 		ctx.chat_data['password'] = hash
-		msg = upd.message.reply_text('Please repeat your password (or enter mismatching password to start over)')
+
+		keyboard = [[IKB("Start over", callback_data='new_password')]]
+		reply_markup = InlineKeyboardMarkup(keyboard)
+
+		msg = upd.message.reply_text('Please repeat your password', reply_markup=reply_markup)
 		return STATE_CONFIRM_PWD
 
 def confirmPassword(upd, ctx):
@@ -90,6 +97,20 @@ def error(upd, ctx):
 	"""Log Errors caused by Updates."""
 	logger.warning('Update "%s" caused error "%s"', upd, ctx.error)
 
+def helpMsg(upd, ctx):
+	msg = ''
+	for key in helpDict:
+		val = helpDict[key]
+		msg += '{0}     {1}\n'.format(key, val[1])
+	upd.message.reply_text(msg)
+
+helpDict = {
+	'password': (setPassword, 'change password'),
+	'encode': (encodeMode, 'turn on encode mode'),
+	'decode': (decodeMode, 'turn on decode mode'),
+	'help': (helpMsg, 'show this message')
+}
+
 def main():
 	updater = Updater(TOKEN, use_context=True)
 	dp = updater.dispatcher
@@ -99,11 +120,8 @@ def main():
 			CommandHandler('start', start)
 		],
 		states={
-			STATE_RECEIVE_MSG: [
-				CommandHandler('help', help),
-				CommandHandler('password', setPassword),
-				CommandHandler('encode', encodeMode),
-				CommandHandler('decode', decodeMode),
+			STATE_RECEIVE_MSG:
+				[CommandHandler(k, helpDict[k][0]) for k in helpDict] + [
 				MessageHandler(Filters.all, receiveMsg)
 			],
 			STATE_RECEIVE_PWD: [
