@@ -1,5 +1,7 @@
 import logging
 
+from telegram import ParseMode
+
 from constants import *
 from crypto import *
 from keyboards import *
@@ -8,7 +10,6 @@ from util import *
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 def storeMsgId(chd, msg):
 	""" Takes chat_data dict and adds message_id for being able to delete all messages later on """
@@ -34,23 +35,32 @@ def clearMessages(upd, ctx):
 	return STATE_RECEIVE_MSG
 
 def getReplyFunc(upd, ctx):
-	""" Returns either reply_text or edit_text functions to be 1-line-used for reply in handlers """
-	# newMessage = True
-	replyFunc = upd.message.reply_text # Contains either .reply_text or .edit_text functions that r used later to reply
+	""" Returns either reply_text or edit_text functions to be 1-line-used for reply in handlers
+		and updates ctx.chat_data[DK_EDITMSG] """
+	msgc = upd.message
+	replyFunc = msgc.reply_text # Contains either .reply_text or .edit_text functions that r used later to reply
 	if inann(ctx.chat_data, DK_EDITMSG):
-		replyFunc = ctx.chat_data[DK_EDITMSG].edit_text
-		# newMessage = False
-	def ret(*args, **kwargs):
-		# if newMessage:
-		# 	msg = upd.message.reply_text(*args, **kwargs)
-		# else:
-		# 	msg = ctx.chat_data[DK_EDITMSG].edit_text(*args, **kwargs)
-		msg = replyFunc(*args, **kwargs)
+		msgc = ctx.chat_data[DK_EDITMSG]
+		replyFunc = msgc.edit_text
+
+	# Function to be returned. The only purpose of such a system to implicitly update ctx.chat_data[DK_EDITMSG]
+	# whenever sending a reply
+	def retReplyFunction(*args, **kwargs):
+		# Parsing text-field from the given arguments
+		txt = None
+		if len(args) > 0: txt = args[0]
+		elif 'text' in kwargs: txt = kwargs['text']
+		else: logger.debug('No text passed into replyFunc function!!')
+
+		# If text is different: edit, otherwise just return message itself
+		msg = msgc
+		if txt != msgc.text:
+			msg = replyFunc(*args, **kwargs)
+
 		ctx.chat_data[DK_EDITMSG] = msg
 		return msg
-	return ret
 
-
+	return retReplyFunction
 
 def everySignal(upd, ctx):
 	""" Checks and actions needed to be performed on each atomic signal received from user """
@@ -64,6 +74,19 @@ def everySignal(upd, ctx):
 
 	# Collect all message-ids in context in order to remove everything on logout
 	storeMsgId(ctx.chat_data, msgu)
+
+
+
+
+def helpMsg(upd, ctx):
+	""" Generates `string` out of helpDict dictionary object """
+	# (reason is that helpDict is also used to construct list of MessageHandlers in main.py)
+	msg = '`'
+	maxCmdLen = len(max(helpDict, key=lambda x: x))
+	for key in sorted(helpDict):
+		val = helpDict[key]
+		msg += '  /{0}{1} - {2}\n'.format(key, ' ' * (maxCmdLen - len(key)), val[1])
+	upd.message.reply_text(msg + '`', parse_mode=ParseMode.MARKDOWN)
 
 def start(upd, ctx):
 	""" Called at the very beginning or by /start. Initializes chat_data vars and asks for a password """
@@ -84,6 +107,8 @@ def start(upd, ctx):
 	msg = msgu.reply_text(MSGC_INTRO_LOGGEDOFF)
 	ctx.chat_data[DK_EDITMSG] = msg
 	storeMsgId(ctx.chat_data, msg)
+
+	msgu.delete()
 
 	return STATE_RECEIVE_PWD
 
@@ -194,11 +219,11 @@ def receiveMsg(upd, ctx):
 		msg = replyFunc(MSGC_ENC_INTRO if ctx.chat_data[DK_MODE] == MODE_ENCODE else MSGC_DEC_INTRO)
 		storeMsgId(ctx.chat_data, msg)
 		# And send result in a separate message
-		msg = msgu.reply_text(MSGC_DEC_FAILED) if msgBytes is None else msgu.reply_text(msgBytes)
+		msg = msgu.reply_text(msgBytes)
 		storeMsgId(ctx.chat_data, msg)
 
-	# Start new communication batch
-	ctx.chat_data[DK_EDITMSG] = None
+		# Start new communication batch
+		ctx.chat_data[DK_EDITMSG] = None
 
 	return STATE_RECEIVE_MSG
 
@@ -243,6 +268,18 @@ def logIn(upd, ctx):
 
 	msg = msgu.reply_text('/login command is not implemented yet')
 	storeMsgId(ctx.chat_data, msg)
+
+
+
+helpDict = {
+	'password': (setPassword, 'change password'),
+	'encode': (encodeMode, 'turn on encode mode'),
+	'decode': (decodeMode, 'turn on decode mode'),
+	'help': (helpMsg, 'show this message'),
+	'clear': (clearMessages, 'clears all messages from history'),
+	'login': (logIn, 'logs in with a password'),
+	'logout': (logOut, 'logs out'),
+}
 
 def error(upd, ctx):
 	"""Log Errors caused by Updates."""

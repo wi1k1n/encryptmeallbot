@@ -15,21 +15,12 @@ Bot which asks for password and then encrypts/decrypts messages using given pass
 # TODO: communicate using editing via batches (e.g. batch for password changing, batch for encoding/decoding)
 # 		but use ordinary replies inbetween batches
 # TODO: setting which tells if original message should be insta-deleted
+# TODO: check semantics (either all uses 'encode/decode' vocabulary or 'encrypt/decrypt')
 # TODO: timer, which deletes encrypted messages
 
 from telegram.ext import Updater, Filters, CommandHandler, ConversationHandler, MessageHandler, CallbackQueryHandler
 from api_token import TOKEN
 from handlers import *
-
-helpDict = {
-	'password': (setPassword, 'change password'),
-	'encode': (encodeMode, 'turn on encode mode'),
-	'decode': (decodeMode, 'turn on decode mode'),
-	'help': (help, 'show this message'),
-	'clear': (clearMessages, 'clears all messages from history'),
-	'login': (logIn, 'logs in with a password'),
-	'logout': (logOut, 'logs out'),
-}
 
 def main():
 	updater = Updater(TOKEN, use_context=True)
