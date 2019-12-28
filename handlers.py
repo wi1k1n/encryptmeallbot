@@ -28,16 +28,27 @@ def clearMessages(upd, ctx):
 			except: pass
 
 	ctx.chat_data[DK_MSGIDS] = []
-	msg = msgu.reply_text(MSGC_INTRO_LIN)
+	# TODO: decide here about intro depending on ctx.chat_data[DK_MODE]
+	msg = msgu.reply_text(MSGC_INTRO_LOGGEDIN)
 	ctx.chat_data[DK_EDITMSG] = msg
 	return STATE_RECEIVE_MSG
 
 def getReplyFunc(upd, ctx):
 	""" Returns either reply_text or edit_text functions to be 1-line-used for reply in handlers """
+	# newMessage = True
 	replyFunc = upd.message.reply_text # Contains either .reply_text or .edit_text functions that r used later to reply
 	if inann(ctx.chat_data, DK_EDITMSG):
 		replyFunc = ctx.chat_data[DK_EDITMSG].edit_text
-	return replyFunc
+		# newMessage = False
+	def ret(*args, **kwargs):
+		# if newMessage:
+		# 	msg = upd.message.reply_text(*args, **kwargs)
+		# else:
+		# 	msg = ctx.chat_data[DK_EDITMSG].edit_text(*args, **kwargs)
+		msg = replyFunc(*args, **kwargs)
+		ctx.chat_data[DK_EDITMSG] = msg
+		return msg
+	return ret
 
 
 
@@ -70,7 +81,7 @@ def start(upd, ctx):
 
 	# TODO: clear history before (or better check where does this call come from and tell about /clear cmd)
 	# Send welcome message
-	msg = msgu.reply_text(MSGC_INTRO_LOFF)
+	msg = msgu.reply_text(MSGC_INTRO_LOGGEDOFF)
 	ctx.chat_data[DK_EDITMSG] = msg
 	storeMsgId(ctx.chat_data, msg)
 
@@ -168,13 +179,26 @@ def receiveMsg(upd, ctx):
 		ctx.chat_data[DK_MODE] = MODE_ENCODE
 		logger.warning('Key "mode" was not found in ctx.chat_data. Reinitialized with mode=="encode"')
 
+	# Function for either encrypt or decrypt
 	msgTransformFunc = encrypt_string if ctx.chat_data[DK_MODE] == MODE_ENCODE else decrypt_string
 
 	msgBytes = msgTransformFunc(msgu.text, ctx.chat_data[DK_PASSWORD])
 	msgu.delete()
 
-	msg = replyFunc(msgBytes)
-	storeMsgId(ctx.chat_data, msg)
+	# Handle case when could not decrypt
+	if msgBytes is None:
+		msg = replyFunc(MSGC_DEC_FAILED)
+		storeMsgId(ctx.chat_data, msg)
+	else:
+		# Reply first with micro-intro message
+		msg = replyFunc(MSGC_ENC_INTRO if ctx.chat_data[DK_MODE] == MODE_ENCODE else MSGC_DEC_INTRO)
+		storeMsgId(ctx.chat_data, msg)
+		# And send result in a separate message
+		msg = msgu.reply_text(MSGC_DEC_FAILED) if msgBytes is None else msgu.reply_text(msgBytes)
+		storeMsgId(ctx.chat_data, msg)
+
+	# Start new communication batch
+	ctx.chat_data[DK_EDITMSG] = None
 
 	return STATE_RECEIVE_MSG
 
@@ -183,6 +207,7 @@ def encodeMode(upd, ctx):
 	msgu = upd.message
 
 	replyFunc = getReplyFunc(upd, ctx)
+	msgu.delete()
 
 	ctx.chat_data[DK_MODE] = MODE_ENCODE
 
@@ -196,6 +221,7 @@ def decodeMode(upd, ctx):
 	logger.debug('>> decodeMode(upd, ctx)')
 
 	replyFunc = getReplyFunc(upd, ctx)
+	msgu.delete()
 
 	ctx.chat_data[DK_MODE] = MODE_DECODE
 

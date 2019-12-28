@@ -14,6 +14,7 @@ Bot which asks for password and then encrypts/decrypts messages using given pass
 
 # TODO: communicate using editing via batches (e.g. batch for password changing, batch for encoding/decoding)
 # 		but use ordinary replies inbetween batches
+# TODO: setting which tells if original message should be insta-deleted
 # TODO: timer, which deletes encrypted messages
 
 from telegram.ext import Updater, Filters, CommandHandler, ConversationHandler, MessageHandler, CallbackQueryHandler
