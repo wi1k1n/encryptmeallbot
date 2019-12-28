@@ -3,8 +3,19 @@
 # This program is dedicated to the public domain under the CC0 license.
 
 """
-Bot which takes messages
+Bot which asks for password and then encrypts/decrypts messages using given password
 """
+
+# T O D O:	it seems to be impossible (with the current version of API) to check if user has deleted
+# 			our message. It means that if he has, then editing this message will has no effect
+# 			(he will not see any changes) and therefore communicating with the only msg is impossible.
+# 			Solution: either to stack replies and delete them after they are not needed anymore or
+# 			to just disregard user's stupidity and let him decide if he wants to delete our messages.
+
+# TODO: communicate using editing via batches (e.g. batch for password changing, batch for encoding/decoding)
+# 		but use ordinary replies inbetween batches
+# TODO: timer, which deletes encrypted messages
+
 from telegram.ext import Updater, Filters, CommandHandler, ConversationHandler, MessageHandler, CallbackQueryHandler
 from api_token import TOKEN
 from handlers import *
@@ -14,7 +25,9 @@ helpDict = {
 	'encode': (encodeMode, 'turn on encode mode'),
 	'decode': (decodeMode, 'turn on decode mode'),
 	'help': (help, 'show this message'),
-	'clear': (clearMessages, 'clears all messages from history')
+	'clear': (clearMessages, 'clears all messages from history'),
+	'login': (logIn, 'logs in with a password'),
+	'logout': (logOut, 'logs out'),
 }
 
 def main():
@@ -33,7 +46,7 @@ def main():
 				MessageHandler(Filters.all, receiveMsg)
 			],
 			STATE_RECEIVE_PWD: [
-				MessageHandler(Filters.all, receivePassword)
+				MessageHandler(Filters.update, receivePassword)
 			],
 			STATE_CONFIRM_PWD: [
 				MessageHandler(Filters.all, confirmPassword),

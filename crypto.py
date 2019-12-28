@@ -24,9 +24,15 @@ def get_hash(pwd):
 	return key
 
 def encrypt_string(data, key):
-	f = Fernet(key)
-	return f.encrypt(data.encode()).decode()
+	""" Takes data (`string`) and key (`string`) and performs encryption """
+	ret = None
+	try: ret = Fernet(key).encrypt(data.encode()).decode()
+	except: pass  # logger.debug('Encryption failed')
+	return ret
 
 def decrypt_string(data, key):
-	f = Fernet(key)
-	return f.decrypt(data.encode()).decode()
+	""" Takes data (`string`) and key (`string`) and performs decryption """
+	ret = None
+	try: ret = Fernet(key).decrypt(data.encode()).decode()
+	except: pass  # logger.debug('Decryption failed')
+	return ret

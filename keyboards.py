@@ -12,4 +12,5 @@ def createKeyboard(items):
 			ret[i][j] = InlineKeyboardButton(it2[0], callback_data=it2[1])
 	return InlineKeyboardMarkup(ret)
 
+# MarkUp keyboards for different replies
 mup_pwdConfirm = createKeyboard([('Start over', 'new_password')])
