@@ -55,7 +55,8 @@ def getReplyFunc(upd, ctx):
 		# If text is different: edit, otherwise just return message itself
 		msg = msgc
 		if txt != msgc.text:
-			msg = replyFunc(*args, **kwargs)
+			try: msg = replyFunc(*args, **kwargs)
+			except: msg = ctx.bot.send_message(upd.effective_chat.id, *args, **kwargs)
 
 		ctx.chat_data[DK_EDITMSG] = msg
 		return msg
@@ -64,7 +65,7 @@ def getReplyFunc(upd, ctx):
 
 def everySignal(upd, ctx):
 	""" Checks and actions needed to be performed on each atomic signal received from user """
-	logger.debug('>> every_signal_checks(upd, ctx)')
+	logger.warning('>> every_signal_checks(upd, ctx)')
 	msgu = upd.message
 
 	# Leave all groups/channels and stay only in private chats
@@ -90,6 +91,7 @@ def helpMsg(upd, ctx):
 
 def start(upd, ctx):
 	""" Called at the very beginning or by /start. Initializes chat_data vars and asks for a password """
+	logger.warning('%%%%%%%%%%%%%%% start %%%%%%%%%%%%%%%')
 	logger.debug('>> start(upd, ctx)')
 	msgu = upd.message
 
@@ -126,10 +128,12 @@ def setPassword(upd, ctx):
 
 def receivePassword(upd, ctx):
 	""" Receives password whether for authorization or in password changing procedure """
+	logger.warning('%%%%%%%%%%%%%%% receivePassword %%%%%%%%%%%%%%%')
 	logger.debug('>> receivePassword(upd, ctx)')
 	msgu = upd.message
 
 	# This is needed bcuz we don't know if the message still exist (or user has already deleted it) (-1-)
+	logger.warning('%%%%%%%%%%%%%%% getReplyFunc %%%%%%%%%%%%%%%')
 	replyFunc = getReplyFunc(upd, ctx)  # Contains either .reply_text or .edit_text functions that r used later to reply
 
 	# TODO: check for only text messages!
@@ -144,7 +148,9 @@ def receivePassword(upd, ctx):
 		ctx.chat_data[DK_PASSWORD] = hash
 
 		# Explained in (-1-), repeats along all handlers
+		logger.warning('%%%%%%%%%%%%%%% replyFunc %%%%%%%%%%%%%%%')
 		msg = replyFunc(MSGC_SETPWD_REPEAT, reply_markup=mup_pwdConfirm)
+		logger.warning('%%%%%%%%%%%%%%% storeMsgId %%%%%%%%%%%%%%%')
 		storeMsgId(ctx.chat_data, msg)
 
 		return STATE_CONFIRM_PWD
