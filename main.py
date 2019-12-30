@@ -12,10 +12,7 @@ Bot which asks for password and then encrypts/decrypts messages using given pass
 # 			Solution: either to stack replies and delete them after they are not needed anymore or
 # 			to just disregard user's stupidity and let him decide if he wants to delete our messages.
 
-# TODO: communicate using editing via batches (e.g. batch for password changing, batch for encoding/decoding)
-# 		but use ordinary replies inbetween batches
 # TODO: setting which tells if original message should be insta-deleted
-# TODO: check semantics (either all uses 'encode/decode' vocabulary or 'encrypt/decrypt')
 # TODO: timer, which deletes encrypted messages
 
 from telegram.ext import Updater, Filters, CommandHandler, ConversationHandler, MessageHandler, CallbackQueryHandler
@@ -29,20 +26,23 @@ def main():
 	dp.add_handler(MessageHandler(Filters.all, everySignal), group=0)
 	dp.add_handler(ConversationHandler(
 		entry_points=[
-			CommandHandler('start', start),
 			MessageHandler(Filters.all, start)
 		],
 		states={
-			STATE_RECEIVE_MSG:
-				[CommandHandler(k, helpDict[k][0]) for k in helpDict] + [
+			STATE_RECEIVE_MSG: [
+				CallbackQueryHandler(modeEncryptOn, pattern='^' + str(CBQ_ENCRYPT)),
+				CallbackQueryHandler(modeDecryptOn, pattern='^' + str(CBQ_DECRYPT)),
+				CallbackQueryHandler(start, pattern='^' + str(CBQ_CANCEL)),
+				CallbackQueryHandler(showMessage, pattern='^' + str(CBQ_SHOWMSG)),
+				CallbackQueryHandler(start, pattern='^' + str(CBQ_FINISH)),
+				CallbackQueryHandler(deleteMessage, pattern='^' + str(CBQ_DELETE)),
 				MessageHandler(Filters.all, receiveMsg)
 			],
 			STATE_RECEIVE_PWD: [
+				CallbackQueryHandler(start, pattern='^' + str(CBQ_CANCEL)),
+				CallbackQueryHandler(showMessage, pattern='^' + str(CBQ_SHOWMSG)),
+				CallbackQueryHandler(deleteMessage, pattern='^' + str(CBQ_DELETE)),
 				MessageHandler(Filters.update, receivePassword)
-			],
-			STATE_CONFIRM_PWD: [
-				MessageHandler(Filters.all, confirmPassword),
-				CallbackQueryHandler(cancelRepeatPassword)
 			]
 		},
 		fallbacks=[]
